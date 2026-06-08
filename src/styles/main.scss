@@ -1,0 +1,88 @@
+// ===== Override variabel Bootstrap (sebelum import bootstrap) =====
+$primary: #6c5ce7;
+$secondary: #636e72;
+$success: #00b894;
+$info: #0984e3;
+$warning: #fdcb6e;
+$danger: #d63031;
+$dark: #2d3436;
+
+$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$border-radius: 0.6rem;
+$border-radius-lg: 1rem;
+$enable-shadows: true;
+
+// Import Bootstrap & icons
+@import 'bootstrap/scss/bootstrap';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+// ===== Custom global styles =====
+:root {
+  --we-gradient: linear-gradient(135deg, #6c5ce7 0%, #0984e3 100%);
+}
+
+body {
+  background-color: #f6f7fb;
+  color: $dark;
+}
+
+.we-gradient-bg {
+  background: var(--we-gradient);
+  color: #fff;
+}
+
+.we-hero {
+  background: var(--we-gradient);
+  color: #fff;
+  border-radius: 0 0 2rem 2rem;
+}
+
+.card-event {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.12) !important;
+  }
+}
+
+.navbar-brand {
+  font-weight: 700;
+}
+
+.sidebar {
+  min-height: calc(100vh - 56px);
+  background: #fff;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.sidebar .nav-link {
+  color: $dark;
+  border-radius: 0.5rem;
+  margin-bottom: 0.25rem;
+  &.active {
+    background: rgba(108, 92, 231, 0.12);
+    color: $primary;
+    font-weight: 600;
+  }
+  &:hover:not(.active) {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.page-section {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+// Scanner viewport
+.scanner-viewport {
+  aspect-ratio: 1 / 1;
+  max-width: 360px;
+  margin: 0 auto;
+  border: 3px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
