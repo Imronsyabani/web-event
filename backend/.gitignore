@@ -1,0 +1,8 @@
+# Binary hasil build
+/server
+/web-event-backend
+*.exe
+*.out
+
+# Env (pakai .env terpusat di root)
+.env
