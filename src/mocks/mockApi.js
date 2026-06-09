@@ -408,7 +408,7 @@ export const mockApi = {
     const ev = findEvent(eventId)
     return { items: ev?.tickets || [] }
   },
-  async createOrder({ eventId, items }) {
+  async createOrder({ eventId, items, source }) {
     await delay()
     const ev = findEvent(eventId)
     const tickets = ev?.tickets || []
@@ -422,6 +422,7 @@ export const mockApi = {
       eventTitle: ev?.title,
       items,
       total,
+      source: source || 'direct', // asal checkout: queue | direct
       status: 'pending',
       createdAt: Date.now(),
     }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Container, Row, Col, Card, Button, Form, Stack } from 'react-bootstrap'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Container, Row, Col, Card, Button, Stack, Badge } from 'react-bootstrap'
 import PageHeader from '../../components/common/PageHeader'
 import Loader from '../../components/common/Loader'
+import QuantityStepper from '../../components/common/QuantityStepper'
 import { eventService } from '../../services/eventService'
 import { ticketService } from '../../services/ticketService'
 import { formatRupiah } from '../../utils/format'
@@ -10,6 +11,9 @@ import { formatRupiah } from '../../utils/format'
 export default function CheckoutPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Tanda apakah checkout ini berasal dari antrian (war ticket)
+  const fromQueue = location.state?.fromQueue || false
   const [event, setEvent] = useState(null)
   const [tickets, setTickets] = useState([])
   const [qty, setQty] = useState({}) // { ticketId: jumlah }
@@ -30,6 +34,13 @@ export default function CheckoutPage() {
     }
   }, [eventId])
 
+  // War ticket WAJIB lewat antrian: akses langsung → dialihkan ke antrian.
+  useEffect(() => {
+    if (event?.isWarTicket && !fromQueue) {
+      navigate(`/queue/${eventId}`, { replace: true })
+    }
+  }, [event, fromQueue, eventId, navigate])
+
   const setTicketQty = (id, value) =>
     setQty((prev) => ({ ...prev, [id]: Math.max(0, value) }))
 
@@ -45,6 +56,7 @@ export default function CheckoutPage() {
       const order = await ticketService.order({
         eventId,
         items: items.map((t) => ({ ticketId: t.id, qty: t.count })),
+        source: fromQueue ? 'queue' : 'direct', // tag asal checkout
       })
       navigate(`/payment/${order.id}`)
     } catch {
@@ -56,7 +68,22 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <PageHeader title="Checkout" subtitle={event?.title} />
+      <PageHeader
+        title="Checkout"
+        subtitle={event?.title}
+        actions={
+          fromQueue ? (
+            <Badge bg="danger" className="fs-6">
+              <i className="bi bi-people-fill me-1" />
+              Via Antrian
+            </Badge>
+          ) : (
+            <Badge bg="secondary" className="fs-6">
+              Pembelian Langsung
+            </Badge>
+          )
+        }
+      />
       <Container className="page-section">
         <Row className="g-4">
           <Col lg={8}>
@@ -75,15 +102,10 @@ export default function CheckoutPage() {
                           {formatRupiah(t.price)} · Sisa {t.quota}
                         </small>
                       </div>
-                      <Form.Control
-                        type="number"
-                        min={0}
-                        max={t.quota}
+                      <QuantityStepper
                         value={qty[t.id] || 0}
-                        onChange={(e) =>
-                          setTicketQty(t.id, Number(e.target.value))
-                        }
-                        style={{ width: 90 }}
+                        max={t.quota}
+                        onChange={(n) => setTicketQty(t.id, n)}
                       />
                     </div>
                   ))}

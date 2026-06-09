@@ -1,7 +1,18 @@
-import { Fragment } from 'react'
+import parse from 'html-react-parser'
 
-// Marker blok dinamis/widget yang diganti komponen React
-const MARKER_RE = /(\{\{events\}\}|\{\{ticket_list\}\}|\{\{buy_button\}\})/g
+// Marker blok/widget → custom tag (diganti komponen React saat parse).
+// Pakai parser DOM agar STRUKTUR (grid/kolom/card) tetap utuh — tidak
+// boleh memecah string lalu membungkus tiap potongan terpisah.
+const MARKER_TAGS = {
+  '{{events}}': 'we-events',
+  '{{ticket_list}}': 'we-ticket-list',
+  '{{buy_button}}': 'we-buy-button',
+}
+const TAG_TO_KEY = {
+  'we-events': '{{events}}',
+  'we-ticket-list': '{{ticket_list}}',
+  'we-buy-button': '{{buy_button}}',
+}
 
 function escapeHtml(str) {
   return String(str)
@@ -16,26 +27,27 @@ function lookup(path, data) {
   return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), data)
 }
 
-// Ganti token inline {{path}} dengan nilai data (di-escape → aman XSS)
-function replaceInline(html, data) {
-  return html.replace(/\{\{([\w.]+)\}\}/g, (_, path) => {
+// 1) marker blok → custom tag, 2) token data inline → nilai (di-escape)
+function prepare(html, data) {
+  let out = html
+  for (const [marker, tag] of Object.entries(MARKER_TAGS)) {
+    out = out.split(marker).join(`<${tag}></${tag}>`)
+  }
+  return out.replace(/\{\{([\w.]+)\}\}/g, (_, path) => {
     const v = lookup(path, data)
     return v == null ? '' : escapeHtml(v)
   })
 }
 
-// Render template HTML → React. Bagian statis lewat dangerouslySetInnerHTML
-// (token sudah di-escape); marker diganti komponen dari `components`.
+// Render template HTML → React, mempertahankan struktur DOM.
 export default function RenderTemplate({ html = '', data = {}, components = {} }) {
-  const parts = html.split(MARKER_RE)
-  return parts.map((part, i) => {
-    if (components[part]) return <Fragment key={i}>{components[part]()}</Fragment>
-    if (!part) return null
-    return (
-      <div
-        key={i}
-        dangerouslySetInnerHTML={{ __html: replaceInline(part, data) }}
-      />
-    )
+  const prepared = prepare(html, data)
+  return parse(prepared, {
+    replace: (node) => {
+      if (node.type === 'tag' && TAG_TO_KEY[node.name]) {
+        const render = components[TAG_TO_KEY[node.name]]
+        return render ? render() : <></>
+      }
+    },
   })
 }

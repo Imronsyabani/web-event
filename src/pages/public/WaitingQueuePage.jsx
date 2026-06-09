@@ -26,10 +26,14 @@ export default function WaitingQueuePage() {
     return () => clearInterval(timer)
   }, [refresh])
 
-  // Saat giliran tiba, arahkan ke checkout
+  // Saat giliran tiba, arahkan ke checkout dengan tanda asal "fromQueue".
+  // replace: true → tekan Back dari checkout tidak balik ke antrian (cegah loop).
   useEffect(() => {
     if (queue?.status === 'active') {
-      navigate(`/checkout/${eventId}`)
+      navigate(`/checkout/${eventId}`, {
+        replace: true,
+        state: { fromQueue: true },
+      })
     }
   }, [queue, eventId, navigate])
 
