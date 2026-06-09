@@ -80,6 +80,19 @@ Semua dijalankan dari root project (`/opt/web-event`):
   → owner (lihat aturan konsistensi data).
 - **Aturan data**: semua entitas wajib terhubung owner/workspace (multi-tenant);
   staff = member workspace; penegakan asli HARUS di backend.
+- **Multi-workspace**: `WorkspaceContext` (`useWorkspace()` → list/current/switch/
+  create) dibungkus di `main.jsx`. Switcher di topbar `DashboardLayout`;
+  `WorkspacesPage` (`/owner/workspaces`) list+buat (limit dari plan via
+  `usePlan().limit('workspaces')`). Mock men-scope data owner (event/budget/
+  member) ke workspace aktif (`curWsId`).
+- **Website builder (renderer)**: site **per workspace** (`builderService` →
+  getSite/saveSite/publish/publicSite). `src/builder/templates.js` = template
+  HTML ber-token + `defaultSite`; `src/builder/render.jsx` = `RenderTemplate`
+  (ganti token inline + marker `{{events}}`/`{{ticket_list}}`/`{{buy_button}}`
+  jadi komponen). `WebsiteBuilderPage` = editor (template/tema/HTML-CSS advanced/
+  preview/publish). Situs publik `src/pages/site/` di route **`/s/:subdomain`**
+  & `/s/:subdomain/event/:id` (subdomain disimulasi; backend nanti via Host).
+  Workspace suspended / site belum publish → **Site404**.
 
 ## License
 

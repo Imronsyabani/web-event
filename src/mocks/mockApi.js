@@ -5,9 +5,9 @@ import {
   events as seedEvents,
   ticketsByEvent,
   paymentMethods,
-  builderTemplates,
   demoUsers,
 } from './data'
+import { TEMPLATES, defaultSite } from '../builder/templates'
 
 const delay = (ms = 400) => new Promise((r) => setTimeout(r, ms))
 
@@ -25,6 +25,8 @@ const write = (key, value) => localStorage.setItem(key, JSON.stringify(value))
 const KEYS = {
   account: 'we_mock_account',
   workspace: 'we_mock_workspace',
+  workspaces: 'we_mock_workspaces',
+  currentWs: 'we_mock_current_ws',
   events: 'we_mock_events',
   orders: 'we_mock_orders',
   payments: 'we_mock_payments',
@@ -39,6 +41,35 @@ const KEYS = {
 }
 
 const RESERVED_SUBDOMAINS = ['www', 'api', 'admin', 'app', 'mail', 'static', 'cdn']
+const SUBDOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/
+
+// ---- multi-workspace helpers ----
+function workspaceStore() {
+  let list = read(KEYS.workspaces, null)
+  if (list) return list
+  list = [{ ...seedWorkspace, status: 'active' }]
+  write(KEYS.workspaces, list)
+  return list
+}
+const saveWorkspaces = (list) => write(KEYS.workspaces, list)
+const curWsId = () => read(KEYS.currentWs, null) || seedWorkspace.id
+const curWorkspace = () =>
+  workspaceStore().find((w) => w.id === curWsId()) || workspaceStore()[0]
+
+// Store site (di-seed: workspace demo sudah punya site published)
+function siteStore() {
+  const sites = read(KEYS.sites, null)
+  if (sites) return sites
+  const seeded = {
+    [seedWorkspace.id]: {
+      ...defaultSite(seedWorkspace.id, seedWorkspace.theme),
+      status: 'published',
+      publishedAt: Date.now(),
+    },
+  }
+  write(KEYS.sites, seeded)
+  return seeded
+}
 
 const rand = (n) => Math.floor(Math.random() * n)
 const pad = () =>
@@ -95,13 +126,13 @@ function seedTickets() {
   return list
 }
 
-// Seed kategori budget (master data per workspace)
-function seedCategories() {
-  let list = read(KEYS.budgetCategories, null)
-  if (list) return list
-  const ws = seedWorkspace.id
-  const mk = (name, type) => ({ id: genId('cat'), workspaceId: ws, name, type })
-  list = [
+// Seed kategori budget (master data per workspace).
+// Setiap workspace dapat set default-nya sendiri saat pertama diakses.
+function ensureCategories(wsId) {
+  const all = read(KEYS.budgetCategories, [])
+  if (all.some((c) => c.workspaceId === wsId)) return all
+  const mk = (name, type) => ({ id: genId('cat'), workspaceId: wsId, name, type })
+  const defaults = [
     mk('Konsumsi', 'expense'),
     mk('Venue', 'expense'),
     mk('Marketing', 'expense'),
@@ -113,8 +144,9 @@ function seedCategories() {
     mk('Donasi', 'income'),
     mk('Lainnya', 'income'),
   ]
-  write(KEYS.budgetCategories, list)
-  return list
+  const next = [...all, ...defaults]
+  write(KEYS.budgetCategories, next)
+  return next
 }
 
 // Seed data penjualan demo agar grafik tidak kosong
@@ -267,27 +299,62 @@ export const mockApi = {
     return next
   },
 
-  // ---------- WORKSPACE ----------
+  // ---------- WORKSPACE (multi) ----------
+  async listWorkspaces() {
+    await delay(200)
+    return { items: workspaceStore(), currentId: curWsId() }
+  },
+  // Workspace yang sedang aktif (dipakai halaman setting lama)
   async getWorkspace() {
     await delay()
-    return read(KEYS.workspace, seedWorkspace)
+    return curWorkspace()
   },
   async saveWorkspace(payload) {
     await delay()
-    const current = read(KEYS.workspace, seedWorkspace)
-    const next = { ...current, ...payload }
-    write(KEYS.workspace, next)
-    return next
+    const list = workspaceStore()
+    const idx = list.findIndex((w) => w.id === curWsId())
+    list[idx] = { ...list[idx], ...payload }
+    saveWorkspaces(list)
+    return list[idx]
+  },
+  async createWorkspace(payload) {
+    await delay()
+    const list = workspaceStore()
+    const ws = {
+      id: genId('ws'),
+      ownerId: seedWorkspace.ownerId,
+      status: 'active',
+      theme: { primary: '#6c5ce7', font: 'Inter' },
+      ...payload,
+    }
+    list.push(ws)
+    saveWorkspaces(list)
+    write(KEYS.currentWs, ws.id) // langsung aktif
+    return ws
+  },
+  async switchWorkspace(id) {
+    await delay(120)
+    write(KEYS.currentWs, id)
+    return { currentId: id }
+  },
+  // Resolusi subdomain → workspace (untuk renderer publik)
+  async getWorkspaceBySubdomain(subdomain) {
+    await delay(200)
+    const ws = workspaceStore().find((w) => w.subdomain === subdomain)
+    if (!ws) throw { response: { status: 404 } }
+    return ws
   },
   async checkSubdomain(subdomain) {
     await delay(200)
     const sub = (subdomain || '').toLowerCase()
-    const valid = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/.test(sub)
-    const current = read(KEYS.workspace, seedWorkspace)
+    const valid = SUBDOMAIN_RE.test(sub)
     const reserved = RESERVED_SUBDOMAINS.includes(sub)
-    // Tersedia bila format valid, bukan reserved (atau milik workspace ini)
-    const available = valid && (!reserved || sub === current.subdomain)
-    return { subdomain: sub, valid, reserved, available }
+    // bentrok bila dipakai workspace LAIN
+    const taken = workspaceStore().some(
+      (w) => w.subdomain === sub && w.id !== curWsId(),
+    )
+    const available = valid && !reserved && !taken
+    return { subdomain: sub, valid, reserved, taken, available }
   },
 
   // ---------- EVENTS ----------
@@ -303,14 +370,15 @@ export const mockApi = {
   },
   async listEventsByOwner() {
     await delay()
-    return { items: eventStore() }
+    // hanya event milik workspace aktif (konsistensi multi-tenant)
+    return { items: eventStore().filter((e) => e.workspaceId === curWsId()) }
   },
   async createEvent(payload) {
     await delay()
     const list = eventStore()
     const ev = {
       id: genId('evt'),
-      workspaceId: seedWorkspace.id,
+      workspaceId: curWsId(),
       tickets: [],
       paymentConfig: { methods: [] },
       ...payload,
@@ -471,14 +539,14 @@ export const mockApi = {
   // ---------- WORKSPACE MEMBERS (staff) ----------
   async listMembers() {
     await delay()
-    return { items: seedMembers() }
+    return { items: seedMembers().filter((m) => m.workspaceId === curWsId()) }
   },
   async inviteMember({ email, roles }) {
     await delay()
     const list = seedMembers()
     const member = {
       id: genId('mbr'),
-      workspaceId: seedWorkspace.id,
+      workspaceId: curWsId(),
       userId: null,
       name: null,
       email,
@@ -537,26 +605,28 @@ export const mockApi = {
   // ---------- BUDGET CATEGORIES (master data) ----------
   async listCategories() {
     await delay(150)
-    return { items: seedCategories() }
+    const ws = curWsId()
+    return { items: ensureCategories(ws).filter((c) => c.workspaceId === ws) }
   },
   async createCategory({ name, type }) {
     await delay(200)
-    const list = seedCategories()
-    const cat = { id: genId('cat'), workspaceId: seedWorkspace.id, name, type }
+    const list = read(KEYS.budgetCategories, [])
+    const cat = { id: genId('cat'), workspaceId: curWsId(), name, type }
     list.push(cat)
     write(KEYS.budgetCategories, list)
     return cat
   },
   async deleteCategory(id) {
     await delay(150)
-    write(KEYS.budgetCategories, seedCategories().filter((c) => c.id !== id))
+    write(KEYS.budgetCategories, read(KEYS.budgetCategories, []).filter((c) => c.id !== id))
     return { ok: true }
   },
 
   // ---------- BUDGET ENTRIES (buku kas) ----------
   async listBudgetEntries({ eventId } = {}) {
     await delay()
-    let list = read(KEYS.budgetEntries, [])
+    const ws = curWsId()
+    let list = read(KEYS.budgetEntries, []).filter((e) => e.workspaceId === ws)
     if (eventId) list = list.filter((e) => e.eventId === eventId)
     return { items: list.sort((a, b) => (a.transactionDate < b.transactionDate ? 1 : -1)) }
   },
@@ -565,7 +635,7 @@ export const mockApi = {
     const list = read(KEYS.budgetEntries, [])
     const entry = {
       id: genId('be'),
-      workspaceId: seedWorkspace.id,
+      workspaceId: curWsId(),
       createdAt: Date.now(),
       ...payload,
     }
@@ -582,19 +652,24 @@ export const mockApi = {
   // ---------- BUDGET PLANS (target anggaran) ----------
   async listBudgetPlans({ eventId } = {}) {
     await delay(200)
-    let list = read(KEYS.budgetPlans, [])
+    const ws = curWsId()
+    let list = read(KEYS.budgetPlans, []).filter((p) => p.workspaceId === ws)
     if (eventId) list = list.filter((p) => p.eventId === eventId)
     return { items: list }
   },
   async saveBudgetPlan(payload) {
     await delay(200)
+    const ws = curWsId()
     const list = read(KEYS.budgetPlans, [])
-    // upsert per (eventId, categoryId)
+    // upsert per (workspace, eventId, categoryId)
     const idx = list.findIndex(
-      (p) => p.eventId === payload.eventId && p.categoryId === payload.categoryId,
+      (p) =>
+        p.workspaceId === ws &&
+        p.eventId === payload.eventId &&
+        p.categoryId === payload.categoryId,
     )
     if (idx >= 0) list[idx] = { ...list[idx], ...payload }
-    else list.push({ id: genId('bp'), workspaceId: seedWorkspace.id, ...payload })
+    else list.push({ id: genId('bp'), workspaceId: ws, ...payload })
     write(KEYS.budgetPlans, list)
     return { ok: true }
   },
@@ -607,26 +682,46 @@ export const mockApi = {
     return aggregateSales(sales, eventId)
   },
 
-  // ---------- BUILDER ----------
+  // ---------- BUILDER (site per workspace) ----------
   async builderTemplates() {
     await delay(200)
-    return { items: builderTemplates }
+    return { items: TEMPLATES.map((t) => ({ id: t.id, name: t.name })) }
   },
-  async getSite(eventId) {
+  // Site workspace aktif (untuk editor)
+  async getSite() {
     await delay()
-    const sites = read(KEYS.sites, {})
-    return sites[eventId] || null
+    const ws = curWsId()
+    const sites = siteStore()
+    return sites[ws] || defaultSite(ws, curWorkspace()?.theme)
   },
-  async saveSite(eventId, payload) {
+  async saveSite(payload) {
     await delay()
-    const sites = read(KEYS.sites, {})
-    sites[eventId] = { ...payload, eventId }
+    const ws = curWsId()
+    const sites = siteStore()
+    const base = sites[ws] || defaultSite(ws, curWorkspace()?.theme)
+    sites[ws] = { ...base, ...payload, workspaceId: ws }
     write(KEYS.sites, sites)
-    return sites[eventId]
+    return sites[ws]
   },
-  async publishSite(eventId) {
+  async publishSite() {
     await delay()
-    return { eventId, published: true }
+    const ws = curWsId()
+    const sites = siteStore()
+    const base = sites[ws] || defaultSite(ws, curWorkspace()?.theme)
+    sites[ws] = { ...base, status: 'published', publishedAt: Date.now(), workspaceId: ws }
+    write(KEYS.sites, sites)
+    return sites[ws]
+  },
+  // Renderer publik: resolusi subdomain → site published + event.
+  // Workspace suspended atau site belum publish → 404.
+  async getPublicSite(subdomain) {
+    await delay(300)
+    const ws = workspaceStore().find((w) => w.subdomain === subdomain)
+    if (!ws || ws.status === 'suspended') throw { response: { status: 404 } }
+    const site = siteStore()[ws.id]
+    if (!site || site.status !== 'published') throw { response: { status: 404 } }
+    const events = eventStore().filter((e) => e.workspaceId === ws.id && e.published)
+    return { workspace: ws, site, events }
   },
 }
 

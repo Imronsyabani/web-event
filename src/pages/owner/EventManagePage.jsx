@@ -84,15 +84,6 @@ export default function EventManagePage() {
                       <i className="bi bi-pencil" />
                     </Button>
                     <Button
-                      as={Link}
-                      to={`/owner/builder/${ev.id}`}
-                      size="sm"
-                      variant="outline-secondary"
-                      className="me-2"
-                    >
-                      <i className="bi bi-window" />
-                    </Button>
-                    <Button
                       size="sm"
                       variant="outline-danger"
                       onClick={() => handleDelete(ev.id)}

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { PlanProvider } from './context/PlanContext.jsx'
+import { WorkspaceProvider } from './context/WorkspaceContext.jsx'
 import './styles/main.scss'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <PlanProvider>
-          <App />
+          <WorkspaceProvider>
+            <App />
+          </WorkspaceProvider>
         </PlanProvider>
       </AuthProvider>
     </BrowserRouter>

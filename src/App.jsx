@@ -28,6 +28,7 @@ const ScannerPage = lazy(() => import('./pages/staff/ScannerPage'))
 // Owner
 import DashboardPage from './pages/owner/DashboardPage'
 import WorkspaceSettingsPage from './pages/owner/WorkspaceSettingsPage'
+import WorkspacesPage from './pages/owner/WorkspacesPage'
 import StaffPage from './pages/owner/StaffPage'
 import EventManagePage from './pages/owner/EventManagePage'
 import EventFormPage from './pages/owner/EventFormPage'
@@ -35,6 +36,10 @@ import WebsiteBuilderPage from './pages/owner/WebsiteBuilderPage'
 import BudgetingPage from './pages/owner/BudgetingPage'
 import SalesFinancePage from './pages/owner/SalesFinancePage'
 import PlanPage from './pages/owner/PlanPage'
+
+// Situs publik (website builder, subdomain disimulasi via /s/:subdomain)
+import SitePage from './pages/site/SitePage'
+import SiteEventPage from './pages/site/SiteEventPage'
 
 // Error
 import NotFoundPage from './pages/error/NotFoundPage'
@@ -47,6 +52,10 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/invite/:token" element={<AcceptInvitePage />} />
+
+      {/* Situs publik per workspace (subdomain disimulasi) */}
+      <Route path="/s/:subdomain" element={<SitePage />} />
+      <Route path="/s/:subdomain/event/:id" element={<SiteEventPage />} />
 
       {/* Area publik (buyer) */}
       <Route element={<PublicLayout />}>
@@ -120,6 +129,7 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="workspaces" element={<WorkspacesPage />} />
         <Route path="workspace" element={<WorkspaceSettingsPage />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="events" element={<EventManagePage />} />
@@ -128,7 +138,6 @@ export default function App() {
         <Route path="sales" element={<SalesFinancePage />} />
         <Route path="budgeting" element={<BudgetingPage />} />
         <Route path="builder" element={<WebsiteBuilderPage />} />
-        <Route path="builder/:eventId" element={<WebsiteBuilderPage />} />
         <Route path="plan" element={<PlanPage />} />
       </Route>
 

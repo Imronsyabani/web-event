@@ -1,8 +1,9 @@
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
-import { Navbar, Nav, Container, Badge } from 'react-bootstrap'
+import { Navbar, Nav, Container, Badge, NavDropdown } from 'react-bootstrap'
 import { AppName } from '../config'
 import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
+import { useWorkspace } from '../context/WorkspaceContext'
 
 const MENU = [
   { to: '/owner', end: true, icon: 'bi-speedometer2', label: 'Ringkasan' },
@@ -20,6 +21,7 @@ const MENU = [
 export default function DashboardLayout() {
   const { user, logout } = useAuth()
   const { isPro } = usePlan()
+  const { workspaces, current, switchTo } = useWorkspace()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -36,6 +38,40 @@ export default function DashboardLayout() {
             {AppName} <span className="text-muted fw-normal">Owner</span>
           </Navbar.Brand>
           <Nav className="ms-auto align-items-center gap-3">
+            {/* Switcher workspace aktif */}
+            <NavDropdown
+              align="end"
+              title={
+                <>
+                  <i className="bi bi-building me-1" />
+                  {current?.name || 'Workspace'}
+                </>
+              }
+              id="ws-switcher"
+            >
+              {workspaces.map((w) => (
+                <NavDropdown.Item
+                  key={w.id}
+                  active={w.id === current?.id}
+                  onClick={() => w.id !== current?.id && switchTo(w.id)}
+                >
+                  <i
+                    className={`bi ${
+                      w.status === 'suspended' ? 'bi-pause-circle text-warning' : 'bi-building'
+                    } me-2`}
+                  />
+                  {w.name}
+                  <span className="text-muted small d-block ms-4">
+                    {w.subdomain}
+                  </span>
+                </NavDropdown.Item>
+              ))}
+              <NavDropdown.Divider />
+              <NavDropdown.Item as={Link} to="/owner/workspaces">
+                <i className="bi bi-grid me-2" />
+                Kelola Workspace
+              </NavDropdown.Item>
+            </NavDropdown>
             <Link to="/" className="text-decoration-none small text-muted">
               <i className="bi bi-box-arrow-up-right me-1" />
               Lihat situs
