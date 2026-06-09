@@ -71,6 +71,15 @@ Semua dijalankan dari root project (`/opt/web-event`):
   (`penjualan tiket + pemasukan − pengeluaran`) + grafik `SalesCharts`
   (Recharts, di-`lazy()`). `salesService` agregator penjualan dipakai bersama
   budgeting. Mock penjualan di-seed agar grafik berisi.
+- **Staff (workspace membership)**: `src/config/roles.js` = master RBAC 5 role
+  (owner, administrator, staff-admin, staff-finance, staff) + helper `can.*` &
+  `assignableRolesBy()` (anti privilege-escalation). `StaffPage` (`/owner/staff`):
+  daftar member, invite by email (multi-role), ubah role, cabut. `memberService`
+  + mock `workspace_members` (status invited/active). `AcceptInvitePage`
+  (`/invite/:token`) untuk terima undangan. Semua member terikat `workspaceId`
+  → owner (lihat aturan konsistensi data).
+- **Aturan data**: semua entitas wajib terhubung owner/workspace (multi-tenant);
+  staff = member workspace; penegakan asli HARUS di backend.
 
 ## License
 

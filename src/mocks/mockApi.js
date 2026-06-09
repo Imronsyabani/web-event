@@ -35,6 +35,7 @@ const KEYS = {
   budgetEntries: 'we_mock_budget_entries',
   budgetPlans: 'we_mock_budget_plans',
   sales: 'we_mock_sales',
+  members: 'we_mock_members',
 }
 
 const RESERVED_SUBDOMAINS = ['www', 'api', 'admin', 'app', 'mail', 'static', 'cdn']
@@ -153,6 +154,73 @@ function seedSales() {
   return list
 }
 
+// Seed anggota workspace (semua terikat workspaceId → owner)
+function seedMembers() {
+  let list = read(KEYS.members, null)
+  if (list) return list
+  const ws = seedWorkspace.id
+  list = [
+    {
+      id: genId('mbr'),
+      workspaceId: ws,
+      userId: seedWorkspace.ownerId,
+      name: 'Owner Demo',
+      email: 'owner@demo.id',
+      roles: ['owner'],
+      status: 'active',
+      invitedBy: null,
+      acceptedAt: Date.now(),
+    },
+    {
+      id: genId('mbr'),
+      workspaceId: ws,
+      userId: 'u-admin1',
+      name: 'Andi Administrator',
+      email: 'andi@demo.id',
+      roles: ['administrator'],
+      status: 'active',
+      invitedBy: 'owner@demo.id',
+      acceptedAt: Date.now(),
+    },
+    {
+      id: genId('mbr'),
+      workspaceId: ws,
+      userId: 'u-fin1',
+      name: 'Fina Finance',
+      email: 'fina@demo.id',
+      roles: ['staff-finance'],
+      status: 'active',
+      invitedBy: 'owner@demo.id',
+      acceptedAt: Date.now(),
+    },
+    {
+      id: genId('mbr'),
+      workspaceId: ws,
+      userId: 'u-staff',
+      name: 'Sari Staff',
+      email: 'staff@demo.id',
+      roles: ['staff'],
+      status: 'active',
+      invitedBy: 'andi@demo.id',
+      acceptedAt: Date.now(),
+    },
+    {
+      id: genId('mbr'),
+      workspaceId: ws,
+      userId: null,
+      name: null,
+      email: 'calon@demo.id',
+      roles: ['staff'],
+      status: 'invited',
+      token: 'INV-DEMO-1234',
+      invitedBy: 'owner@demo.id',
+      invitedAt: Date.now(),
+    },
+  ]
+  write(KEYS.members, list)
+  return list
+}
+
 export const mockApi = {
   // ---------- AUTH ----------
   async login({ email }) {
@@ -176,9 +244,11 @@ export const mockApi = {
   async getAccount() {
     await delay(150)
     const stored = read(KEYS.account, null)
-    // Default demo: akun owner = Pro agar fitur Pro bisa dilihat
+    // Default demo: akun owner = Pro agar fitur Pro bisa dilihat.
+    // Setiap akun terikat ke owner (ownerId) — konsistensi kepemilikan data.
     return (
       stored || {
+        ownerId: seedWorkspace.ownerId,
         planCode: 'pro',
         status: 'active',
         defaultWorkspaceId: seedWorkspace.id,
@@ -188,6 +258,7 @@ export const mockApi = {
   async setPlan(planCode) {
     await delay(150)
     const current = read(KEYS.account, {
+      ownerId: seedWorkspace.ownerId,
       status: 'active',
       defaultWorkspaceId: seedWorkspace.id,
     })
@@ -395,6 +466,72 @@ export const mockApi = {
     t.used = true
     write(KEYS.tickets, tickets)
     return { valid: true, message: 'Check-in berhasil!', ticket: t }
+  },
+
+  // ---------- WORKSPACE MEMBERS (staff) ----------
+  async listMembers() {
+    await delay()
+    return { items: seedMembers() }
+  },
+  async inviteMember({ email, roles }) {
+    await delay()
+    const list = seedMembers()
+    const member = {
+      id: genId('mbr'),
+      workspaceId: seedWorkspace.id,
+      userId: null,
+      name: null,
+      email,
+      roles: roles || ['staff'],
+      status: 'invited',
+      token: `INV-${pad()}-${pad()}`,
+      invitedAt: Date.now(),
+    }
+    list.push(member)
+    write(KEYS.members, list)
+    return member
+  },
+  async updateMemberRoles(id, roles) {
+    await delay(200)
+    const list = seedMembers()
+    const idx = list.findIndex((m) => m.id === id)
+    if (idx === -1) throw { response: { status: 404 } }
+    list[idx] = { ...list[idx], roles }
+    write(KEYS.members, list)
+    return list[idx]
+  },
+  async revokeMember(id) {
+    await delay(200)
+    write(KEYS.members, seedMembers().filter((m) => m.id !== id))
+    return { ok: true }
+  },
+  // Detail undangan untuk halaman terima
+  async getInvite(token) {
+    await delay(200)
+    const m = seedMembers().find((x) => x.token === token && x.status === 'invited')
+    if (!m) throw { response: { status: 404 } }
+    const ws = read(KEYS.workspace, seedWorkspace)
+    return {
+      email: m.email,
+      roles: m.roles,
+      workspaceName: ws.name,
+      invitedBy: m.invitedBy,
+    }
+  },
+  async acceptInvite({ token, name }) {
+    await delay()
+    const list = seedMembers()
+    const idx = list.findIndex((m) => m.token === token && m.status === 'invited')
+    if (idx === -1) throw { response: { status: 404 } }
+    list[idx] = {
+      ...list[idx],
+      status: 'active',
+      name: name || list[idx].email,
+      userId: genId('u'),
+      acceptedAt: Date.now(),
+    }
+    write(KEYS.members, list)
+    return list[idx]
   },
 
   // ---------- BUDGET CATEGORIES (master data) ----------

@@ -20,6 +20,7 @@ import MyTicketsPage from './pages/public/MyTicketsPage'
 // Auth
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import AcceptInvitePage from './pages/auth/AcceptInvitePage'
 
 // Staff (lazy: ZXing scanner berat, hanya dimuat saat dibuka)
 const ScannerPage = lazy(() => import('./pages/staff/ScannerPage'))
@@ -27,6 +28,7 @@ const ScannerPage = lazy(() => import('./pages/staff/ScannerPage'))
 // Owner
 import DashboardPage from './pages/owner/DashboardPage'
 import WorkspaceSettingsPage from './pages/owner/WorkspaceSettingsPage'
+import StaffPage from './pages/owner/StaffPage'
 import EventManagePage from './pages/owner/EventManagePage'
 import EventFormPage from './pages/owner/EventFormPage'
 import WebsiteBuilderPage from './pages/owner/WebsiteBuilderPage'
@@ -44,6 +46,7 @@ export default function App() {
       {/* Auth (tanpa layout publik) */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/invite/:token" element={<AcceptInvitePage />} />
 
       {/* Area publik (buyer) */}
       <Route element={<PublicLayout />}>
@@ -118,6 +121,7 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="workspace" element={<WorkspaceSettingsPage />} />
+        <Route path="staff" element={<StaffPage />} />
         <Route path="events" element={<EventManagePage />} />
         <Route path="events/new" element={<EventFormPage />} />
         <Route path="events/:id/edit" element={<EventFormPage />} />

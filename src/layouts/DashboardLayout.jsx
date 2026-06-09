@@ -7,6 +7,7 @@ import { usePlan } from '../context/PlanContext'
 const MENU = [
   { to: '/owner', end: true, icon: 'bi-speedometer2', label: 'Ringkasan' },
   { to: '/owner/workspace', icon: 'bi-building-gear', label: 'Workspace' },
+  { to: '/owner/staff', icon: 'bi-people', label: 'Kelola Staff' },
   { to: '/owner/events', icon: 'bi-calendar-event', label: 'Event Saya' },
   { to: '/owner/events/new', icon: 'bi-plus-circle', label: 'Buat Event' },
   { to: '/owner/sales', icon: 'bi-graph-up-arrow', label: 'Penjualan & Keuangan', pro: true },
