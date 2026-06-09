@@ -1,14 +1,12 @@
 import { Card, Badge } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { formatDateTime, formatRupiah } from '../../utils/format'
+import { eventPriceFrom, eventIsWarNow } from '../../utils/ticketPhase'
 
 export default function EventCard({ event }) {
-  // Harga termurah: dari priceFrom, atau dihitung dari daftar tiket
-  const priceFrom =
-    event.priceFrom ??
-    (event.tickets?.length
-      ? Math.min(...event.tickets.map((t) => t.price || 0))
-      : 0)
+  // Harga termurah dari fase aktif
+  const priceFrom = eventPriceFrom(event) ?? event.priceFrom ?? 0
+  const warNow = eventIsWarNow(event)
 
   return (
     <Card
@@ -26,11 +24,10 @@ export default function EventCard({ event }) {
         )}
       </div>
       <Card.Body>
-        {event.category && (
-          <Badge bg="primary" className="mb-2">
-            {event.category}
-          </Badge>
-        )}
+        <div className="mb-2 d-flex gap-1">
+          {event.category && <Badge bg="primary">{event.category}</Badge>}
+          {warNow && <Badge bg="danger">War Ticket</Badge>}
+        </div>
         <Card.Title className="h6 mb-1 text-truncate">{event.title}</Card.Title>
         <div className="small text-muted mb-2">
           <i className="bi bi-calendar-event me-1" />

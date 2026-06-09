@@ -6,6 +6,7 @@ import SiteFrame from './SiteFrame'
 import Site404 from './Site404'
 import { builderService } from '../../services/builderService'
 import { formatDateTime, formatRupiah } from '../../utils/format'
+import { eventPriceFrom } from '../../utils/ticketPhase'
 
 // Grid event (mengisi token {{events}})
 function EventsGrid({ events, subdomain }) {
@@ -14,9 +15,7 @@ function EventsGrid({ events, subdomain }) {
   return (
     <div className="row g-4">
       {events.map((ev) => {
-        const price = ev.tickets?.length
-          ? Math.min(...ev.tickets.map((t) => t.price || 0))
-          : 0
+        const price = eventPriceFrom(ev) ?? 0
         return (
           <div className="col-sm-6 col-lg-4" key={ev.id}>
             <Link

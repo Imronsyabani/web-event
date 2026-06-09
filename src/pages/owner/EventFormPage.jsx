@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Container, Card, Form, Button, Row, Col, Table } from 'react-bootstrap'
+import { Container, Card, Form, Button, Row, Col } from 'react-bootstrap'
 import Loader from '../../components/common/Loader'
+import TicketPhaseEditor from '../../components/event/TicketPhaseEditor'
 import { eventService } from '../../services/eventService'
 import { paymentMethods } from '../../mocks/data'
-import { formatRupiah } from '../../utils/format'
 
 const EMPTY = {
   title: '',
@@ -16,16 +16,8 @@ const EMPTY = {
   venue: { name: '', address: '', mapUrl: '' },
   tickets: [],
   paymentConfig: { methods: [] },
-  isWarTicket: false,
   published: false,
 }
-
-const newTicket = () => ({
-  id: `tk-${Math.random().toString(36).slice(2, 8)}`,
-  name: '',
-  price: 0,
-  quota: 0,
-})
 
 // Dipakai untuk buat (tanpa id) dan edit (dengan id) event
 export default function EventFormPage() {
@@ -64,21 +56,6 @@ export default function EventFormPage() {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, venue: { ...prev.venue, [name]: value } }))
   }
-
-  // ---- tickets dinamis ----
-  const addTicket = () =>
-    setForm((p) => ({ ...p, tickets: [...p.tickets, newTicket()] }))
-  const removeTicket = (idx) =>
-    setForm((p) => ({ ...p, tickets: p.tickets.filter((_, i) => i !== idx) }))
-  const updateTicket = (idx, field, value) =>
-    setForm((p) => ({
-      ...p,
-      tickets: p.tickets.map((t, i) =>
-        i === idx
-          ? { ...t, [field]: field === 'name' ? value : Number(value) }
-          : t,
-      ),
-    }))
 
   // ---- payment methods ----
   const togglePayment = (code) =>
@@ -220,76 +197,18 @@ export default function EventFormPage() {
           </Card.Body>
         </Card>
 
-        {/* Tiket / daftar harga */}
+        {/* Tiket & fase (Early Bird / Normal) */}
         <Card className="border-0 shadow-sm mb-4">
           <Card.Body className="p-4">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="mb-0">Daftar Harga Tiket</h6>
-              <Button size="sm" variant="outline-primary" onClick={addTicket}>
-                <i className="bi bi-plus-lg me-1" />
-                Tambah Tiket
-              </Button>
-            </div>
-            {form.tickets.length === 0 ? (
-              <p className="text-muted small mb-0">
-                Belum ada tiket. Klik &quot;Tambah Tiket&quot;.
-              </p>
-            ) : (
-              <Table responsive className="align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>Nama</th>
-                    <th style={{ width: 160 }}>Harga (Rp)</th>
-                    <th style={{ width: 110 }}>Kuota</th>
-                    <th style={{ width: 50 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.tickets.map((t, idx) => (
-                    <tr key={t.id}>
-                      <td>
-                        <Form.Control
-                          value={t.name}
-                          onChange={(e) => updateTicket(idx, 'name', e.target.value)}
-                          placeholder="VIP / Regular / ..."
-                        />
-                      </td>
-                      <td>
-                        <Form.Control
-                          type="number"
-                          min={0}
-                          value={t.price}
-                          onChange={(e) => updateTicket(idx, 'price', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <Form.Control
-                          type="number"
-                          min={0}
-                          value={t.quota}
-                          onChange={(e) => updateTicket(idx, 'quota', e.target.value)}
-                        />
-                      </td>
-                      <td className="text-end">
-                        <Button
-                          size="sm"
-                          variant="outline-danger"
-                          onClick={() => removeTicket(idx)}
-                        >
-                          <i className="bi bi-trash" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-            {form.tickets.length > 0 && (
-              <div className="text-muted small mt-2">
-                Termurah:{' '}
-                {formatRupiah(Math.min(...form.tickets.map((t) => t.price || 0)))}
-              </div>
-            )}
+            <h6 className="mb-1">Tiket & Fase Penjualan</h6>
+            <p className="text-muted small">
+              Tiap tiket bisa punya beberapa fase berurut waktu (mis. Early Bird →
+              Normal). Fase aktif menentukan harga & apakah lewat antrian.
+            </p>
+            <TicketPhaseEditor
+              tickets={form.tickets}
+              onChange={(tickets) => setForm((p) => ({ ...p, tickets }))}
+            />
           </Card.Body>
         </Card>
 
@@ -320,15 +239,6 @@ export default function EventFormPage() {
         {/* Opsi */}
         <Card className="border-0 shadow-sm mb-4">
           <Card.Body className="p-4">
-            <Form.Check
-              type="switch"
-              id="isWarTicket"
-              name="isWarTicket"
-              label="Gunakan waiting queue (war ticket)"
-              checked={form.isWarTicket}
-              onChange={onChange}
-              className="mb-2"
-            />
             <Form.Check
               type="switch"
               id="published"

@@ -5,7 +5,8 @@ import Loader from '../../components/common/Loader'
 import EmptyState from '../../components/common/EmptyState'
 import { eventService } from '../../services/eventService'
 import { ticketService } from '../../services/ticketService'
-import { formatDateTime, formatRupiah } from '../../utils/format'
+import { formatDateTime, formatRupiah, formatDate } from '../../utils/format'
+import { ticketStatus, eventIsWarNow } from '../../utils/ticketPhase'
 
 export default function EventDetailPage() {
   const { id } = useParams()
@@ -46,9 +47,10 @@ export default function EventDetailPage() {
       </Container>
     )
 
-  // Jika event "war ticket", arahkan ke antrian; selain itu langsung checkout
+  // War ticket (fase aktif) → antrian; selain itu langsung checkout
+  const warNow = eventIsWarNow(event)
   const goNext = () => {
-    if (event.isWarTicket) navigate(`/queue/${event.id}`)
+    if (warNow) navigate(`/queue/${event.id}`)
     else navigate(`/checkout/${event.id}`)
   }
 
@@ -66,16 +68,10 @@ export default function EventDetailPage() {
       <Container className="page-section">
         <Row className="g-4">
           <Col lg={8}>
-            {event.category && (
-              <Badge bg="primary" className="mb-2">
-                {event.category}
-              </Badge>
-            )}
-            {event.isWarTicket && (
-              <Badge bg="danger" className="mb-2 ms-2">
-                War Ticket
-              </Badge>
-            )}
+            <div className="mb-2 d-flex gap-2">
+              {event.category && <Badge bg="primary">{event.category}</Badge>}
+              {warNow && <Badge bg="danger">War Ticket</Badge>}
+            </div>
             <h1 className="fw-bold">{event.title}</h1>
             <div className="text-muted mb-4">
               <div className="mb-1">
@@ -84,7 +80,7 @@ export default function EventDetailPage() {
               </div>
               <div>
                 <i className="bi bi-geo-alt me-2" />
-                {event.location || 'Online'}
+                {event.venue?.name || event.location || 'Online'}
               </div>
             </div>
             <h5>Deskripsi</h5>
@@ -101,22 +97,38 @@ export default function EventDetailPage() {
                   <p className="text-muted small">Tiket belum tersedia.</p>
                 ) : (
                   <ListGroup variant="flush" className="mb-3">
-                    {tickets.map((t) => (
-                      <ListGroup.Item
-                        key={t.id}
-                        className="d-flex justify-content-between align-items-center px-0"
-                      >
-                        <div>
-                          <div className="fw-semibold">{t.name}</div>
-                          <small className="text-muted">
-                            {t.quota > 0 ? `Sisa ${t.quota}` : 'Habis'}
-                          </small>
-                        </div>
-                        <span className="fw-bold text-primary">
-                          {formatRupiah(t.price)}
-                        </span>
-                      </ListGroup.Item>
-                    ))}
+                    {tickets.map((t) => {
+                      const st = ticketStatus(t)
+                      return (
+                        <ListGroup.Item
+                          key={t.id}
+                          className="d-flex justify-content-between align-items-center px-0"
+                        >
+                          <div>
+                            <div className="fw-semibold">
+                              {t.name}
+                              {st.phase && (
+                                <Badge bg="light" text="dark" className="ms-2 border">
+                                  {st.phase.name}
+                                </Badge>
+                              )}
+                            </div>
+                            <small className="text-muted">
+                              {st.phase
+                                ? st.available
+                                  ? `Sisa ${st.quota}`
+                                  : 'Habis'
+                                : st.upcoming
+                                  ? `Mulai ${formatDate(st.upcoming.startAt)}`
+                                  : 'Belum dijual'}
+                            </small>
+                          </div>
+                          <span className="fw-bold text-primary">
+                            {st.price != null ? formatRupiah(st.price) : '-'}
+                          </span>
+                        </ListGroup.Item>
+                      )
+                    })}
                   </ListGroup>
                 )}
                 <Button
@@ -125,7 +137,7 @@ export default function EventDetailPage() {
                   onClick={goNext}
                   disabled={tickets.length === 0}
                 >
-                  {event.isWarTicket ? 'Masuk Antrian' : 'Beli Tiket'}
+                  {warNow ? 'Masuk Antrian' : 'Beli Tiket'}
                 </Button>
               </Card.Body>
             </Card>

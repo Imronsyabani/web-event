@@ -8,6 +8,10 @@ import {
   demoUsers,
 } from './data'
 import { TEMPLATES, defaultSite } from '../builder/templates'
+import { activePhase } from '../utils/ticketPhase'
+
+// Harga tiket saat ini = harga fase aktif (fallback ke harga dasar)
+const currentPrice = (ticket) => activePhase(ticket)?.price ?? ticket?.price ?? 0
 
 const delay = (ms = 400) => new Promise((r) => setTimeout(r, ms))
 
@@ -89,7 +93,10 @@ function eventStore() {
       address: ev.location,
       mapUrl: '',
     },
-    tickets: ticketsByEvent[ev.id] || [],
+    tickets: (ticketsByEvent[ev.id] || []).map((tk) => ({
+      ...tk,
+      phases: seedPhases(tk, ev),
+    })),
     paymentConfig: { methods: paymentMethods.map((m) => m.code) },
   }))
   write(KEYS.events, list)
@@ -97,6 +104,38 @@ function eventStore() {
 }
 const saveEvents = (list) => write(KEYS.events, list)
 const findEvent = (id) => eventStore().find((e) => e.id === id)
+
+// Bangun fase tiket seed: Early Bird (sebagian kuota, lebih murah, war
+// mengikuti flag event lama) → Normal (sisa harga penuh). Demonstrasi model fase.
+function seedPhases(tk, ev) {
+  const now = new Date()
+  const iso = (days) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() + days)
+    return d.toISOString()
+  }
+  const ebQuota = Math.max(0, Math.ceil((tk.quota || 0) * 0.4))
+  return [
+    {
+      id: `${tk.id}-eb`,
+      name: 'Early Bird',
+      price: Math.round((tk.price || 0) * 0.85),
+      quota: ebQuota,
+      startAt: iso(-1),
+      endAt: iso(20),
+      isWarTicket: !!ev.isWarTicket,
+    },
+    {
+      id: `${tk.id}-nm`,
+      name: 'Normal',
+      price: tk.price || 0,
+      quota: Math.max(0, (tk.quota || 0) - ebQuota),
+      startAt: iso(21),
+      endAt: ev.startAt,
+      isWarTicket: false,
+    },
+  ]
+}
 
 // Seed beberapa tiket demo agar "Tiket Saya" & scanner tidak kosong
 function seedTickets() {
@@ -414,7 +453,7 @@ export const mockApi = {
     const tickets = ev?.tickets || []
     const total = items.reduce((sum, it) => {
       const t = tickets.find((x) => x.id === it.ticketId)
-      return sum + (t ? t.price * it.qty : 0)
+      return sum + (t ? currentPrice(t) * it.qty : 0)
     }, 0)
     const order = {
       id: genId('ord'),
@@ -827,7 +866,7 @@ function issueTicketsForOrder(orderId) {
       ticketId: it.ticketId,
       ticketName: def?.name || 'Tiket',
       qty: it.qty,
-      amount: (def?.price || 0) * it.qty,
+      amount: (def ? currentPrice(def) : 0) * it.qty,
       status: 'paid',
       date: today,
     })

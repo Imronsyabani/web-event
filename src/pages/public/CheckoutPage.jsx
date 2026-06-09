@@ -7,6 +7,7 @@ import QuantityStepper from '../../components/common/QuantityStepper'
 import { eventService } from '../../services/eventService'
 import { ticketService } from '../../services/ticketService'
 import { formatRupiah } from '../../utils/format'
+import { ticketStatus, eventIsWarNow } from '../../utils/ticketPhase'
 
 export default function CheckoutPage() {
   const { eventId } = useParams()
@@ -34,20 +35,23 @@ export default function CheckoutPage() {
     }
   }, [eventId])
 
-  // War ticket WAJIB lewat antrian: akses langsung → dialihkan ke antrian.
+  // War ticket (fase aktif) WAJIB lewat antrian: akses langsung → dialihkan.
+  const warNow = eventIsWarNow(event)
   useEffect(() => {
-    if (event?.isWarTicket && !fromQueue) {
+    if (event && warNow && !fromQueue) {
       navigate(`/queue/${eventId}`, { replace: true })
     }
-  }, [event, fromQueue, eventId, navigate])
+  }, [event, warNow, fromQueue, eventId, navigate])
 
   const setTicketQty = (id, value) =>
     setQty((prev) => ({ ...prev, [id]: Math.max(0, value) }))
 
-  const items = tickets
+  // Sertakan status fase aktif (harga & kuota) per tiket
+  const ticketsEff = tickets.map((t) => ({ ...t, eff: ticketStatus(t) }))
+  const items = ticketsEff
     .map((t) => ({ ...t, count: qty[t.id] || 0 }))
     .filter((t) => t.count > 0)
-  const total = items.reduce((sum, t) => sum + t.price * t.count, 0)
+  const total = items.reduce((sum, t) => sum + (t.eff.price || 0) * t.count, 0)
 
   const handleSubmit = async () => {
     if (items.length === 0) return
@@ -91,20 +95,29 @@ export default function CheckoutPage() {
               <Card.Body>
                 <h5 className="mb-3">Pilih jumlah tiket</h5>
                 <Stack gap={3}>
-                  {tickets.map((t) => (
+                  {ticketsEff.map((t) => (
                     <div
                       key={t.id}
                       className="d-flex justify-content-between align-items-center border rounded p-3"
                     >
                       <div>
-                        <div className="fw-semibold">{t.name}</div>
+                        <div className="fw-semibold">
+                          {t.name}
+                          {t.eff.phase && (
+                            <span className="badge bg-light text-dark border ms-2">
+                              {t.eff.phase.name}
+                            </span>
+                          )}
+                        </div>
                         <small className="text-muted">
-                          {formatRupiah(t.price)} · Sisa {t.quota}
+                          {t.eff.available
+                            ? `${formatRupiah(t.eff.price)} · Sisa ${t.eff.quota}`
+                            : 'Tidak tersedia'}
                         </small>
                       </div>
                       <QuantityStepper
                         value={qty[t.id] || 0}
-                        max={t.quota}
+                        max={t.eff.available ? t.eff.quota : 0}
                         onChange={(n) => setTicketQty(t.id, n)}
                       />
                     </div>
@@ -129,7 +142,7 @@ export default function CheckoutPage() {
                       <span>
                         {t.name} × {t.count}
                       </span>
-                      <span>{formatRupiah(t.price * t.count)}</span>
+                      <span>{formatRupiah((t.eff.price || 0) * t.count)}</span>
                     </div>
                   ))
                 )}

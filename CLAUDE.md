@@ -47,8 +47,15 @@ Semua dijalankan dari root project (`/opt/web-event`):
 - `src/components/` — `common/` (Loader, EmptyState, PageHeader, StatusBadge),
   `layout/` (AppNavbar, AppFooter), `event/` (EventCard).
 - `src/styles/main.scss` — override variabel Bootstrap + style global (tema ungu).
-- Fitur war ticket: `EventDetailPage` mengarahkan ke `WaitingQueuePage` bila
-  `event.isWarTicket`, lalu otomatis ke checkout saat giliran tiba.
+- **Fase tiket**: tiket punya `phases[]` (`{name,price,quota,startAt,endAt,
+  isWarTicket}`). `src/utils/ticketPhase.js` = `activePhase`, `ticketStatus`,
+  `eventIsWarNow`, `eventPriceFrom`. Harga/kuota/war ditentukan **fase aktif**
+  (by tanggal), bukan flag `event.isWarTicket` (dipensiunkan). Editor fase di
+  `TicketPhaseEditor` (dipakai `EventFormPage`).
+- Fitur war ticket: gating antrian ikut **fase aktif** — `EventDetailPage`/
+  `CheckoutPage`/site mengarahkan ke `WaitingQueuePage` bila `eventIsWarNow`,
+  lalu otomatis ke checkout (`state.fromQueue`) saat giliran tiba. Checkout
+  war-ticket via akses langsung dialihkan ke antrian; `order.source`=queue|direct.
 - **Mock data**: `config.UseMockData` (default `true`) membuat semua service
   memakai `src/mocks/`. `data.js` = seed (events, tickets, metode bayar,
   template). `mockApi.js` = mock stateful via localStorage (alur order →

@@ -6,30 +6,42 @@ import SiteFrame from './SiteFrame'
 import Site404 from './Site404'
 import { builderService } from '../../services/builderService'
 import { formatDateTime, formatRupiah } from '../../utils/format'
+import { ticketStatus, eventIsWarNow } from '../../utils/ticketPhase'
 
-// Daftar tiket (mengisi token {{ticket_list}})
+// Daftar tiket (mengisi token {{ticket_list}}) — pakai harga fase aktif
 function TicketList({ event }) {
   if (!event.tickets?.length)
     return <p className="text-muted small">Tiket belum tersedia.</p>
   return (
     <ul className="list-group list-group-flush mb-3">
-      {event.tickets.map((t) => (
-        <li
-          key={t.id}
-          className="list-group-item d-flex justify-content-between px-0"
-        >
-          <span>{t.name}</span>
-          <strong>{formatRupiah(t.price)}</strong>
-        </li>
-      ))}
+      {event.tickets.map((t) => {
+        const st = ticketStatus(t)
+        return (
+          <li
+            key={t.id}
+            className="list-group-item d-flex justify-content-between px-0"
+          >
+            <span>
+              {t.name}
+              {st.phase && (
+                <span className="badge bg-light text-dark border ms-2">
+                  {st.phase.name}
+                </span>
+              )}
+            </span>
+            <strong>{st.price != null ? formatRupiah(st.price) : '-'}</strong>
+          </li>
+        )
+      })}
     </ul>
   )
 }
 
-// Tombol beli — posisi BAKU (widget kita). War ticket → antrian.
+// Tombol beli — posisi BAKU (widget kita). War ticket (fase aktif) → antrian.
 function BuyButton({ event, navigate }) {
+  const warNow = eventIsWarNow(event)
   const go = () =>
-    navigate(event.isWarTicket ? `/queue/${event.id}` : `/checkout/${event.id}`)
+    navigate(warNow ? `/queue/${event.id}` : `/checkout/${event.id}`)
   return (
     <button
       className="btn w-100 text-white"
@@ -37,7 +49,7 @@ function BuyButton({ event, navigate }) {
       onClick={go}
       disabled={!event.tickets?.length}
     >
-      {event.isWarTicket ? 'Masuk Antrian' : 'Beli Tiket'}
+      {warNow ? 'Masuk Antrian' : 'Beli Tiket'}
     </button>
   )
 }
